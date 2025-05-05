@@ -1,44 +1,66 @@
-from tensorflow.keras.datasets import mnist
-(x_train, y_train), (x_test, y_test) = mnist.load_data()
-
-import tensorflow as tf
-from tensorflow.keras import layers, models
-from tensorflow.keras.datasets import mnist
+Step 1: Import Libraries
+import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Flatten
+from tensorflow.keras.utils import to_categorical
 
-# Load and preprocess the data
-(x_train, y_train), (x_test, y_test) = mnist.load_data()
+Step 2: Load and Explore the Dataset
+train_data = pd.read_csv('/content/train.csv')
+print("Shape of train_data:", train_data.shape)
+X = train_data.iloc[:, 1:]  
+y = train_data.iloc[:, 0]   
 
-# Normalize pixel values to [0, 1] and reshape
-x_train = x_train.reshape(-1, 28, 28, 1).astype("float32") / 255.0
-x_test = x_test.reshape(-1, 28, 28, 1).astype("float32") / 255.0
+print("Shape of X after separating features:", X.shape)
 
-# Build the CNN model
-model = models.Sequential([
-    layers.Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape=(28, 28, 1)),
-    layers.MaxPooling2D(pool_size=(2, 2)),
-    layers.Conv2D(64, kernel_size=(3, 3), activation='relu'),
-    layers.MaxPooling2D(pool_size=(2, 2)),
-    layers.Flatten(),
-    layers.Dense(128, activation='relu'),
-    layers.Dense(10, activation='softmax')
+Step 3: Preprocess the Data
+if not isinstance(X, pd.DataFrame):
+    X = pd.DataFrame(X)
+X = X.apply(pd.to_numeric, errors='coerce')
+X = X.fillna(0)  
+X = X.values / 255.0
+X = X.reshape(-1, 28, 28, 1)
+print("Shape of X after reshaping:", X.shape)
+
+Step 4: One-Hot Encode the Labels
+y = to_categorical(y, num_classes=10)
+print("Shape of y after one-hot encoding:", y.shape)
+
+Step 5: Split the Data
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+print("X_train shape:", X_train.shape)
+
+Step 6: Build the Neural Network Model
+model = Sequential([
+    Flatten(input_shape=(28, 28, 1)), 
+    Dense(128, activation='relu'),     
+    Dense(64, activation='relu'),      
+    Dense(10, activation='softmax')    
 ])
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+model.summary()
 
-# Compile the model
-model.compile(optimizer='adam',
-              loss='sparse_categorical_crossentropy',
-              metrics=['accuracy'])
+Step 7: Train the Model
+history = model.fit(X_train, y_train, epochs=10, batch_size=32, validation_data=(X_val, y_val))
 
-# Train the model
-model.fit(x_train, y_train, epochs=5, validation_split=0.1)
+Step 8: Evaluate the Model
+val_loss, val_accuracy = model.evaluate(X_val, y_val)
+print(f"Validation Accuracy: {val_accuracy * 100:.2f}%")
+plt.plot(history.history['accuracy'], label='Training Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.legend()
+plt.show()
 
-# Evaluate the model
-test_loss, test_acc = model.evaluate(x_test, y_test)
-print(f"Test accuracy: {test_acc:.4f}")
-
-# Optional: Display a few predictions
-predictions = model.predict(x_test[:5])
+Step 9: Make Predictions
+test_data = pd.read_csv('/content/test.csv')
+X_test = test_data.values / 255.0
+X_test = X_test.reshape(-1, 28, 28, 1)
+predictions = model.predict(X_test)
+predicted_labels = np.argmax(predictions, axis=1)
 for i in range(5):
-    plt.imshow(x_test[i].reshape(28, 28), cmap='gray')
-    plt.title(f"Predicted: {predictions[i].argmax()}, Actual: {y_test[i]}")
+    plt.imshow(X_test[i].reshape(28, 28), cmap='gray')
+    plt.title(f"Predicted: {predicted_labels[i]}")
+    plt.axis('off')
     plt.show()
